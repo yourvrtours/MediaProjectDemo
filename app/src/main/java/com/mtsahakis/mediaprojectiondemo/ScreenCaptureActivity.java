@@ -1,4 +1,4 @@
-package com.mtsahakis.mediaprojectiondemo;
+package com.yourvrtours.mediaprojectiondemo;
 
 import android.app.Activity;
 import android.content.Context;
@@ -45,7 +45,7 @@ public class ScreenCaptureActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK) {
-                startService(com.mtsahakis.mediaprojectiondemo.ScreenCaptureService.getStartIntent(this, resultCode, data));
+                startService(com.yourvrtours.mediaprojectiondemo.ScreenCaptureService.getStartIntent(this, resultCode, data));
             }
         }
     }
@@ -58,7 +58,7 @@ public class ScreenCaptureActivity extends Activity {
     }
 
     private void stopProjection() {
-        startService(com.mtsahakis.mediaprojectiondemo.ScreenCaptureService.getStopIntent(this));
+        startService(com.yourvrtours.mediaprojectiondemo.ScreenCaptureService.getStopIntent(this));
     }
 
 }

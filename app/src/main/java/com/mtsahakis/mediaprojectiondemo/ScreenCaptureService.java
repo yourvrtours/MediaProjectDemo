@@ -1,4 +1,4 @@
-package com.mtsahakis.mediaprojectiondemo;
+package com.yourvrtours.mediaprojectiondemo;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -13,6 +13,7 @@ import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.MediaRecorder;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Handler;
@@ -31,7 +32,14 @@ import java.util.Objects;
 
 import androidx.core.util.Pair;
 
+import com.yourvrtours.mediaprojectiondemo.NotificationUtils;
+
 public class ScreenCaptureService extends Service {
+
+
+    MediaRecorder mediaRecorder;
+    private static int fps;
+    private static int bit;
 
     private static final String TAG = "ScreenCaptureService";
     private static final String RESULT_CODE = "RESULT_CODE";
@@ -60,6 +68,14 @@ public class ScreenCaptureService extends Service {
         intent.putExtra(ACTION, START);
         intent.putExtra(RESULT_CODE, resultCode);
         intent.putExtra(DATA, data);
+
+        intent.putExtra("code", Activity.RESULT_OK);
+        intent.putExtra("data", data);
+//        intent.putExtra("path", path);
+//        intent.putExtra("width", mWidth);
+//        intent.putExtra("height", mHeight);
+        intent.putExtra("bit", bit);
+        intent.putExtra("fps", fps);
         return intent;
     }
 
@@ -86,7 +102,22 @@ public class ScreenCaptureService extends Service {
         @Override
         public void onImageAvailable(ImageReader reader) {
 
-            FileOutputStream fos = null;
+            Image image = reader.acquireLatestImage();
+            if (image != null) {
+                int width = image.getWidth();
+                int height = image.getHeight();
+                final Image.Plane[] planes = image.getPlanes();
+                final ByteBuffer buffer = planes[0].getBuffer();
+                int pixelStride = planes[0].getPixelStride();
+                int rowStride = planes[0].getRowStride();
+                int rowPadding = rowStride - pixelStride * width;
+                Bitmap mBitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
+                mBitmap.copyPixelsFromBuffer(buffer);
+                image.close();
+            }
+        }
+    }
+/*            FileOutputStream fos = null;
             Bitmap bitmap = null;
             try (Image image = mImageReader.acquireLatestImage()) {
                 if (image != null) {
@@ -124,8 +155,7 @@ public class ScreenCaptureService extends Service {
                 }
 
             }
-        }
-    }
+        }*/
 
     private class OrientationChangeCallback extends OrientationEventListener {
 
@@ -212,6 +242,12 @@ public class ScreenCaptureService extends Service {
             Pair<Integer, Notification> notification = NotificationUtils.getNotification(this);
             startForeground(notification.first, notification.second);
             // start projection
+
+//            outPath = intent.getStringExtra("path");
+//            mWidth = intent.getIntExtra("width", 720);
+//            mHeight = intent.getIntExtra("height", 1080);
+            bit = intent.getIntExtra("bit", 1000);
+            fps = intent.getIntExtra("fps", 24);
             int resultCode = intent.getIntExtra(RESULT_CODE, Activity.RESULT_CANCELED);
             Intent data = intent.getParcelableExtra(DATA);
             startProjection(resultCode, data);
@@ -237,7 +273,10 @@ public class ScreenCaptureService extends Service {
                 mDisplay = windowManager.getDefaultDisplay();
 
                 // create virtual display depending on device width / height
+                mediaRecorder = createMediaRecorder();
                 createVirtualDisplay();
+
+                mediaRecorder.start();
 
                 // register orientation change callback
                 mOrientationChangeCallback = new OrientationChangeCallback(this);
@@ -249,6 +288,27 @@ public class ScreenCaptureService extends Service {
                 mMediaProjection.registerCallback(new MediaProjectionStopCallback(), mHandler);
             }
         }
+    }
+
+
+    private MediaRecorder createMediaRecorder() {
+        MediaRecorder mediaRecorder = new MediaRecorder();
+        mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+//        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+//        mediaRecorder.setOutputFile(outPath);
+        mediaRecorder.setOutputFile(mStoreDir + "/myscreen_" + IMAGES_PRODUCED + ".mp4");
+        mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+//        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+        mediaRecorder.setVideoSize(720, 1080);
+        mediaRecorder.setVideoFrameRate(24);
+        mediaRecorder.setVideoEncodingBitRate(1000);
+        try {
+            mediaRecorder.prepare();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return mediaRecorder;
     }
 
     private void stopProjection() {
