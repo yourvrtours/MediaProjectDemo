@@ -68,13 +68,6 @@ public class ScreenCaptureService extends Service {
         intent.putExtra(ACTION, START);
         intent.putExtra(RESULT_CODE, resultCode);
         intent.putExtra(DATA, data);
-//        intent.putExtra("code", Activity.RESULT_OK);
-//        intent.putExtra("data", data);
-//        intent.putExtra("path", path);
-//        intent.putExtra("width", mWidth);
-//        intent.putExtra("height", mHeight);
-//        intent.putExtra("bit", bit);
-//        intent.putExtra("fps", fps);
         return intent;
     }
 
@@ -102,7 +95,6 @@ public class ScreenCaptureService extends Service {
         @Override
         public void onImageAvailable(ImageReader reader) {
 
-            FileOutputStream fos = null;
             Bitmap bitmap = null;
             try (Image image = mImageReader.acquireLatestImage()) {
                 if (image != null) {
@@ -116,23 +108,7 @@ public class ScreenCaptureService extends Service {
                     bitmap = Bitmap.createBitmap(mWidth + rowPadding / pixelStride, mHeight, Bitmap.Config.ARGB_8888);
                     bitmap.copyPixelsFromBuffer(buffer);
 
-                    // write bitmap to a file
-                    fos = new FileOutputStream(mStoreDir + "/myscreen_" + IMAGES_PRODUCED + ".png");
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
-
-                    IMAGES_PRODUCED++;
                     Log.e(TAG, "captured image: " + IMAGES_PRODUCED);
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (fos != null) {
-                    try {
-                        fos.close();
-                    } catch (IOException ioe) {
-                        ioe.printStackTrace();
-                    }
                 }
 
                 if (bitmap != null) {
@@ -180,7 +156,6 @@ public class ScreenCaptureService extends Service {
                 public void run() {
                     if (mVirtualDisplay != null) {
                         mVirtualDisplay.release();
-                        mediaRecorder.stop();
                     }
                     if (mImageReader != null) mImageReader.setOnImageAvailableListener(null, null);
                     if (mOrientationChangeCallback != null) mOrientationChangeCallback.disable();
@@ -235,11 +210,6 @@ public class ScreenCaptureService extends Service {
             startForeground(notification.first, notification.second);
             // start projection
 
-//            outPath = intent.getStringExtra("path");
-//            mWidth = intent.getIntExtra("width", 720);
-//            mHeight = intent.getIntExtra("height", 1080);
-            bit = 1000;
-            fps = 24;
             int resultCode = intent.getIntExtra(RESULT_CODE, Activity.RESULT_CANCELED);
             Intent data = intent.getParcelableExtra(DATA);
             startProjection(resultCode, data);
@@ -292,7 +262,10 @@ public class ScreenCaptureService extends Service {
         mediaRecorder.setOutputFile(mStoreDir + "/myscreen_" + IMAGES_PRODUCED + ".mp4");
         mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
 //        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-        mediaRecorder.setVideoSize(720, 1080);
+        mWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
+        mHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
+        Log.i(TAG, "size is W:" + mWidth + " H:" + mHeight);
+        mediaRecorder.setVideoSize(mWidth, mHeight);
         mediaRecorder.setVideoFrameRate(24);
         mediaRecorder.setVideoEncodingBitRate(1000);
         try {
@@ -328,7 +301,6 @@ public class ScreenCaptureService extends Service {
         mImageReader = ImageReader.newInstance(mWidth, mHeight, PixelFormat.RGBA_8888, 2);
         mVirtualDisplay = mMediaProjection.createVirtualDisplay(SCREENCAP_NAME, mWidth, mHeight,
                 mDensity, getVirtualDisplayFlags(), mediaRecorder.getSurface(), null, mHandler);
-        //      mDensity, getVirtualDisplayFlags(), mImageReader.getSurface(), null, mHandler);
         mImageReader.setOnImageAvailableListener(new ImageAvailableListener(), mHandler);
     }
 }
