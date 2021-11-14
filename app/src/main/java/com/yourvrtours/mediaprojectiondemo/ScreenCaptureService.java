@@ -22,12 +22,16 @@ import android.media.ImageReader;
 import android.media.MediaRecorder;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
+import android.opengl.EGL14;
+import android.opengl.EGLContext;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 import android.view.Display;
 import android.view.OrientationEventListener;
+import android.view.Surface;
 import android.view.WindowManager;
 
 import java.io.File;
@@ -36,12 +40,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
+import androidx.annotation.NonNull;
 import androidx.core.util.Pair;
 
 import com.yourvrtours.mediaprojectiondemo.NotificationUtils;
 
 public class ScreenCaptureService extends Service {
 
+    private MediaProjectionManager projectionManager;
+    private TextureMovieEncoder mRecorder;
+    private OnMediaProjectionReadyListener mMediaProjectionReadyListener;
 
     MediaRecorder mediaRecorder;
     private static int fps;
@@ -69,6 +77,18 @@ public class ScreenCaptureService extends Service {
     private int mRotation;
     private OrientationChangeCallback mOrientationChangeCallback;
 
+    public interface OnMediaProjectionReadyListener {
+        void onMediaProjectionReady(MediaProjection mMediaProjection);
+    }
+
+
+    public OnMediaProjectionReadyListener getMediaProjectionReadyListener() {
+        return mMediaProjectionReadyListener;
+    }
+
+    public void setMediaProjectionReadyListener(OnMediaProjectionReadyListener mediaProjectionReadyListener) {
+        this.mMediaProjectionReadyListener = mediaProjectionReadyListener;
+    }
     public static Intent getStartIntent(Context context, int resultCode, Intent data) {
         Intent intent = new Intent(context, ScreenCaptureService.class);
         intent.putExtra(ACTION, START);
@@ -82,6 +102,19 @@ public class ScreenCaptureService extends Service {
         intent.putExtra(ACTION, STOP);
         return intent;
     }
+
+    @NonNull
+    private File getFile() {
+        File file = new File(
+                mStoreDir + File.separator + "test",
+                System.currentTimeMillis() + ".mp4");
+        if (!file.getParentFile().exists()) {
+            file.getParentFile().mkdirs();
+        }
+        return file;
+    }
+
+
 
     private static boolean isStartCommand(Intent intent) {
         return intent.hasExtra(RESULT_CODE) && intent.hasExtra(DATA)
@@ -165,7 +198,7 @@ public class ScreenCaptureService extends Service {
                     }
                     if (mImageReader != null) mImageReader.setOnImageAvailableListener(null, null);
                     if (mOrientationChangeCallback != null) mOrientationChangeCallback.disable();
-                    mMediaProjection.unregisterCallback(MediaProjectionStopCallback.this);
+//                    mMediaProjection.unregisterCallback(MediaProjectionStopCallback.this);
                 }
             });
         }
@@ -228,10 +261,19 @@ public class ScreenCaptureService extends Service {
 
         return START_NOT_STICKY;
     }
+    public RecordCallback getRecordCallback() {
+        return mRecorder.getRecordCallback();
+    }
+
+    public void setRecordCallback(RecordCallback recordCallback) {
+        mRecorder.setRecordCallback(recordCallback);
+    }
+
 
     private void startProjection(int resultCode, Intent data) {
         MediaProjectionManager mpManager =
                 (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+
         if (mMediaProjection == null) {
             mMediaProjection = mpManager.getMediaProjection(resultCode, data);
             if (mMediaProjection != null) {
@@ -240,11 +282,26 @@ public class ScreenCaptureService extends Service {
                 WindowManager windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
                 mDisplay = windowManager.getDefaultDisplay();
 
+                if (mMediaProjectionReadyListener != null) {
+                    mMediaProjectionReadyListener.onMediaProjectionReady(mMediaProjection);
+                }
                 // create virtual display depending on device width / height
-                mediaRecorder = createMediaRecorder();
+//                mediaRecorder = createMediaRecorder();
+                mRecorder = new TextureMovieEncoder();
                 createVirtualDisplay();
+                EGLContext eglContext = EGL14.eglGetCurrentContext();
+                File file = getFile();
+                mRecorder.startRecording(new TextureMovieEncoder.EncoderConfig(file,
+                        720, 1080,
+                        0, 0, 1 * 1024 * 1024, eglContext));
+                mRecorder.setCallback(new TextureMovieEncoder.Callback() {
+                    @Override
+                    public void onInputSurfacePrepared(Surface surface) {
+                        mVirtualDisplay.setSurface(surface);
+                    }
+                });
 
-                mediaRecorder.start();
+//                mediaRecorder.start();
 
                 // register orientation change callback
                 mOrientationChangeCallback = new OrientationChangeCallback(this);
@@ -288,10 +345,10 @@ public class ScreenCaptureService extends Service {
                 @Override
                 public void run() {
                     if (mMediaProjection != null) {
-                        mediaRecorder.setOnErrorListener(null);
+//                        mediaRecorder.setOnErrorListener(null);
                         mMediaProjection.stop();
-                        mediaRecorder.reset();
-                        mediaRecorder.release();
+//                        mediaRecorder.reset();
+//                        mediaRecorder.release();
                     }
                 }
             });
@@ -305,8 +362,16 @@ public class ScreenCaptureService extends Service {
         mHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
         // start capture reader
         mImageReader = ImageReader.newInstance(mWidth, mHeight, PixelFormat.RGBA_8888, 2);
-        mVirtualDisplay = mMediaProjection.createVirtualDisplay(SCREENCAP_NAME, mWidth, mHeight,
-                mDensity, getVirtualDisplayFlags(), mediaRecorder.getSurface(), null, mHandler);
+//        mVirtualDisplay = MediaProjection.createVirtualDisplay(SCREENCAP_NAME, mWidth, mHeight,
+//                mDensity, getVirtualDisplayFlags(), mediaRecorder.getSurface(), null, mHandler);
+        mVirtualDisplay = mMediaProjection.createVirtualDisplay(
+                "LiveScreen",
+                mWidth, mHeight,
+                mDensity,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                null, // we don't need to display by now
+                null, null);
+
         mImageReader.setOnImageAvailableListener(new ImageAvailableListener(), mHandler);
     }
 }
