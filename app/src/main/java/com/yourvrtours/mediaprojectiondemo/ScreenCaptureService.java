@@ -1,5 +1,4 @@
 package com.yourvrtours.mediaprojectiondemo;
-
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Notification;
@@ -68,14 +67,6 @@ public class ScreenCaptureService extends Service {
         intent.putExtra(ACTION, START);
         intent.putExtra(RESULT_CODE, resultCode);
         intent.putExtra(DATA, data);
-
-        intent.putExtra("code", Activity.RESULT_OK);
-        intent.putExtra("data", data);
-//        intent.putExtra("path", path);
-//        intent.putExtra("width", mWidth);
-//        intent.putExtra("height", mHeight);
-        intent.putExtra("bit", bit);
-        intent.putExtra("fps", fps);
         return intent;
     }
 
@@ -98,26 +89,11 @@ public class ScreenCaptureService extends Service {
         return DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY | DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
     }
 
+
     private class ImageAvailableListener implements ImageReader.OnImageAvailableListener {
         @Override
         public void onImageAvailable(ImageReader reader) {
 
-            Image image = reader.acquireLatestImage();
-            if (image != null) {
-                int width = image.getWidth();
-                int height = image.getHeight();
-                final Image.Plane[] planes = image.getPlanes();
-                final ByteBuffer buffer = planes[0].getBuffer();
-                int pixelStride = planes[0].getPixelStride();
-                int rowStride = planes[0].getRowStride();
-                int rowPadding = rowStride - pixelStride * width;
-                Bitmap mBitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
-                mBitmap.copyPixelsFromBuffer(buffer);
-                image.close();
-            }
-        }
-    }
-/*            FileOutputStream fos = null;
             Bitmap bitmap = null;
             try (Image image = mImageReader.acquireLatestImage()) {
                 if (image != null) {
@@ -131,23 +107,7 @@ public class ScreenCaptureService extends Service {
                     bitmap = Bitmap.createBitmap(mWidth + rowPadding / pixelStride, mHeight, Bitmap.Config.ARGB_8888);
                     bitmap.copyPixelsFromBuffer(buffer);
 
-                    // write bitmap to a file
-                    fos = new FileOutputStream(mStoreDir + "/myscreen_" + IMAGES_PRODUCED + ".png");
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
-
-                    IMAGES_PRODUCED++;
                     Log.e(TAG, "captured image: " + IMAGES_PRODUCED);
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (fos != null) {
-                    try {
-                        fos.close();
-                    } catch (IOException ioe) {
-                        ioe.printStackTrace();
-                    }
                 }
 
                 if (bitmap != null) {
@@ -155,7 +115,8 @@ public class ScreenCaptureService extends Service {
                 }
 
             }
-        }*/
+        }
+    }
 
     private class OrientationChangeCallback extends OrientationEventListener {
 
@@ -170,7 +131,10 @@ public class ScreenCaptureService extends Service {
                 mRotation = rotation;
                 try {
                     // clean up
-                    if (mVirtualDisplay != null) mVirtualDisplay.release();
+                    if (mVirtualDisplay != null) {
+                        mVirtualDisplay.release();
+                        mediaRecorder.stop();
+                    }
                     if (mImageReader != null) mImageReader.setOnImageAvailableListener(null, null);
 
                     // re-create virtual display depending on device width / height
@@ -189,7 +153,9 @@ public class ScreenCaptureService extends Service {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    if (mVirtualDisplay != null) mVirtualDisplay.release();
+                    if (mVirtualDisplay != null) {
+                        mVirtualDisplay.release();
+                    }
                     if (mImageReader != null) mImageReader.setOnImageAvailableListener(null, null);
                     if (mOrientationChangeCallback != null) mOrientationChangeCallback.disable();
                     mMediaProjection.unregisterCallback(MediaProjectionStopCallback.this);
@@ -243,11 +209,6 @@ public class ScreenCaptureService extends Service {
             startForeground(notification.first, notification.second);
             // start projection
 
-//            outPath = intent.getStringExtra("path");
-//            mWidth = intent.getIntExtra("width", 720);
-//            mHeight = intent.getIntExtra("height", 1080);
-            bit = intent.getIntExtra("bit", 1000);
-            fps = intent.getIntExtra("fps", 24);
             int resultCode = intent.getIntExtra(RESULT_CODE, Activity.RESULT_CANCELED);
             Intent data = intent.getParcelableExtra(DATA);
             startProjection(resultCode, data);
@@ -300,7 +261,10 @@ public class ScreenCaptureService extends Service {
         mediaRecorder.setOutputFile(mStoreDir + "/myscreen_" + IMAGES_PRODUCED + ".mp4");
         mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
 //        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-        mediaRecorder.setVideoSize(720, 1080);
+        mWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
+        mHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
+        Log.i(TAG, "size is W:" + mWidth + " H:" + mHeight);
+        mediaRecorder.setVideoSize(mWidth, mHeight);
         mediaRecorder.setVideoFrameRate(24);
         mediaRecorder.setVideoEncodingBitRate(1000);
         try {
@@ -317,7 +281,10 @@ public class ScreenCaptureService extends Service {
                 @Override
                 public void run() {
                     if (mMediaProjection != null) {
+                        mediaRecorder.setOnErrorListener(null);
                         mMediaProjection.stop();
+                        mediaRecorder.reset();
+                        mediaRecorder.release();
                     }
                 }
             });
@@ -329,11 +296,10 @@ public class ScreenCaptureService extends Service {
         // get width and height
         mWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
         mHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
-
         // start capture reader
         mImageReader = ImageReader.newInstance(mWidth, mHeight, PixelFormat.RGBA_8888, 2);
         mVirtualDisplay = mMediaProjection.createVirtualDisplay(SCREENCAP_NAME, mWidth, mHeight,
-                mDensity, getVirtualDisplayFlags(), mImageReader.getSurface(), null, mHandler);
+                mDensity, getVirtualDisplayFlags(), mediaRecorder.getSurface(), null, mHandler);
         mImageReader.setOnImageAvailableListener(new ImageAvailableListener(), mHandler);
     }
 }
