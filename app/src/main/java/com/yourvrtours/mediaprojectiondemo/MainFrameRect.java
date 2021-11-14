@@ -14,14 +14,19 @@
  * limitations under the License.
  */
 
-package com.yourvrtours.mediaprojectiondemo.gles;
+package com.yourvrtours.mediaprojectiondemo;
+import com.yourvrtours.mediaprojectiondemo.gles.Drawable2d;
+import com.yourvrtours.mediaprojectiondemo.gles.GlUtil;
+import com.yourvrtours.mediaprojectiondemo.gles.Texture2dProgram;
 
 /**
- * This class essentially represents a viewport-sized sprite that will be rendered with
- * a texture, usually from an external source like the camera or video decoder.
+ * This class is used to cut the top and bottom area of the screen and
+ * just keep the center main part.
+ *
+ * In this demo, we'll cut the status bar and navigation bar of the screen
  */
-public class FullFrameRect {
-    private final Drawable2d mRectDrawable = new Drawable2d(Drawable2d.Prefab.FULL_RECTANGLE);
+public class MainFrameRect {
+    private final CroppedDrawable2d mRectDrawable;
     private Texture2dProgram mProgram;
 
     /**
@@ -30,7 +35,8 @@ public class FullFrameRect {
      * @param program The program to use.  FullFrameRect takes ownership, and will release
      *     the program when no longer needed.
      */
-    public FullFrameRect(Texture2dProgram program) {
+    public MainFrameRect(Texture2dProgram program) {
+        mRectDrawable = new CroppedDrawable2d(Drawable2d.Prefab.FULL_RECTANGLE);
         mProgram = program;
     }
 
@@ -66,6 +72,20 @@ public class FullFrameRect {
     public void changeProgram(Texture2dProgram program) {
         mProgram.release();
         mProgram = program;
+    }
+
+    /**
+     * @param bottomCropped defines the bottom area to be cut. from 0f-1f.
+     */
+    public void setBottomCropped(float bottomCropped) {
+        mRectDrawable.setBottomCropped(bottomCropped);
+    }
+
+    /**
+     * @param topCropped defines the top area to be cut. from 0f-1f.
+     */
+    public void setTopCropped(float topCropped) {
+        mRectDrawable.setTopCropped(topCropped);
     }
 
     /**

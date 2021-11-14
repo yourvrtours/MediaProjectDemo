@@ -1,4 +1,11 @@
 package com.yourvrtours.mediaprojectiondemo;
+
+import static android.content.Context.MEDIA_PROJECTION_SERVICE;
+import static com.yourvrtours.mediaprojectiondemo.VideoEncoderCore.DEFAULT_CHANNEL_CONFIG;
+import static com.yourvrtours.mediaprojectiondemo.VideoEncoderCore.DEFAULT_DATA_FORMAT;
+import static com.yourvrtours.mediaprojectiondemo.VideoEncoderCore.DEFAULT_SAMPLE_RATE;
+
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Notification;

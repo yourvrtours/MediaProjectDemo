@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.github.junyuecao.croppedscreenrecorder.gles;
+package com.yourvrtours.mediaprojectiondemo.gles;
 
 /**
  * Off-screen EGL surface (pbuffer).

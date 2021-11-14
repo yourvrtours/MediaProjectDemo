@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-package io.github.junyuecao.croppedscreenrecorder.gles;
-
+package com.yourvrtours.mediaprojectiondemo.gles;
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
 
